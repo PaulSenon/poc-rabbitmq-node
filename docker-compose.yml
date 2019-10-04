@@ -1,0 +1,29 @@
+version: '3'
+services:
+
+  rabbitmq-broker:
+    image: rabbitmq:3.8.0-management-alpine
+    # build: ./images/rabbitmq
+    container_name: 'rabbitmq-broker'
+    hostname: 'test-broker'
+    restart: on-failure
+    ports:
+      - 5672:5672
+      - 8080:15672
+    environment:
+      RABBITMQ_DEFAULT_USER: 'test'
+      RABBITMQ_DEFAULT_PASS: '1234'
+    # networks: 
+    #   - rabbitmq-network
+
+  # rabbitmq-manager:
+  #   container_name: 'rabbitmq-manager'
+  #   hostname: 'test-broker'
+  #   restart: on-failure
+  #   ports:
+  #     - 8080:15672
+  #   networks: 
+  #     - rabbitmq-network
+
+# networks:
+#   rabbitmq-network:
