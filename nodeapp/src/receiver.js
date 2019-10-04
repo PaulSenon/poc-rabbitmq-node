@@ -4,7 +4,7 @@ const subscriberId = process.argv[2];
 
 
 const topicsTest = [
-    "logs.#", "logs.info.#", "logs.warning.#", "logs.error.#"
+    "#", "logs.info.#", "logs.warning.#", "logs.error.#"
 ];
 
 const exchangeKey = topicsTest[subscriberId%topicsTest.length] || topicsTest[0];

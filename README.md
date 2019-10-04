@@ -25,6 +25,8 @@ by default : (you can change it in `docker-compose.yml`, also used in js through
 * `MQ_HOST` = '127.0.0.1' (or `192.168.99.100` on windows if not `Windows 10 Pro`)
 * `MQ_PORT`: '5672' 
 
+> you can open the rabbitmq manager tool in a browser : http://192.168.99.100:8080 (or http://localhost:8080) use the credential above ^
+
 ### use node pub/sub demo scripts :
 
 * go in `src/` (`cd src`)
@@ -39,3 +41,8 @@ by default : (you can change it in `docker-compose.yml`, also used in js through
 * `yarn pub` will start a new publisher that will publish some messages for all subscribers
 
 > you can run `1` publisher and `n` subscribers
+
+# Release note
+
+### v0
+* use `topic` exchange type, (like mqtt). Subscribers can listen to everything or a part of a topic. 
