@@ -46,3 +46,8 @@ by default : (you can change it in `docker-compose.yml`, also used in js through
 
 ### v0
 * use `topic` exchange type, (like mqtt). Subscribers can listen to everything or a part of a topic. 
+
+
+# known issues :
+
+* from `amqplib` (npm) => to handle channel events (`error`, `close`, ...) you must also handle those events in connection. Otherwise events are never triggered...
