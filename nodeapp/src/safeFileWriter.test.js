@@ -11,10 +11,14 @@ const os = require("os");
         const fwriter = new FileWriter(file.path);
         await fwriter.open();
 
-        await fwriter.addLine("test 1");
-        await fwriter.addLine("test 2");
-        await fwriter.addLine("test 3");
-        await fwriter.addLine("test 4");
+        // let row = '@1345345@sdgsgk3@dljlkdnslkghldklkjg'
+        // const res = await fwriter.extractRowKey(row);
+        // console.log(res);
+
+        // for(let i=0; i<20; i++){
+        //     await fwriter.addLine(10, `test ${i}`);
+        // }
+
         let res;
         while(res = await fwriter.popLine()){
             console.log("res", res);

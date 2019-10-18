@@ -1,6 +1,7 @@
 const connector = require ('./common/mq-connector');
 const { QUEUE_NAME, EXCHANGE_MODE, EXCHANGE_NAME, EXCHANGE_KEYS } = require('./config');
 const fs = require('fs');
+const FileWriter = require('./safeFileWriter');
 
 const demoWorkQueue = async channel => {
     channel.assertQueue(QUEUE_NAME, {
@@ -151,7 +152,7 @@ const demoPubSub = async channel => {
     }
 
     const sendMessage = (channel, { type = defaultMessageType, count, reset }) => {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             const messageBuffer = Buffer.from(JSON.stringify({
                 message: `${type} ${count}`,
                 type,
@@ -159,7 +160,7 @@ const demoPubSub = async channel => {
                 reset,
             }));
 
-            saveForAck(count, {
+            await saveForAck(count, {
                 exchange: EXCHANGE_NAME,
                 topic: topic[type],
                 buffer: messageBuffer,
@@ -182,19 +183,23 @@ const demoPubSub = async channel => {
 
     let messageUnAckHistory = {};
     const ack = count => {
-        if(!!messageUnAckHistory[count]){
-            console.log(`ACK   > ${count}`);
-            delete messageUnAckHistory[count];
-        }else{
-            console.log(`ERROR try to ack a message that has never been sent... : id: ${count}`);
-        }
+        // if(!!messageUnAckHistory[count]){
+        //     console.log(`ACK   > ${count}`);
+        //     delete messageUnAckHistory[count];
+        // }else{
+        //     console.log(`ERROR try to ack a message that has never been sent... : id: ${count}`);
+        // }
     }
     const saveForAck = (count, save) => {
-        if(!messageUnAckHistory[count]){
-            messageUnAckHistory[count] = save;
-        }else{
-            console.log(`ERROR to save message for ack but id already saved... : id: ${count}`);
-        }
+        return new Promise(async (resolve, reject) => {
+            await fwriter.addLine(JSON.stringify(save));
+            resolve();
+        });
+        // if(!messageUnAckHistory[count]){
+        //     messageUnAckHistory[count] = save;
+        // }else{
+        //     console.log(`ERROR to save message for ack but id already saved... : id: ${count}`);
+        // }
     }
 
     /** @return loop */
@@ -232,7 +237,7 @@ const demoPubSub = async channel => {
             }catch(err){
                 borkerErrorHandler();
             }
-        }, 10);
+        }, 500);
     }
 
     const stopMessageLoop = (/*loop*/) => {

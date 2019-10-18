@@ -114,10 +114,11 @@ class saveFileWriter{
     }
 
 
-    addLine(data){
+    addLine(key, data){
         return new Promise((resolve, reject) => {
             // create buffer
-            const buffer = JSON.stringify(Buffer.from(data));
+            let buffer = JSON.stringify(Buffer.from(data));
+            buffer = `@${key}@${buffer}`;
 
             this.mutex.lock(async () => {
                 // write in tmp file first
@@ -137,22 +138,49 @@ class saveFileWriter{
         });
     }
 
+    extractRowKey(row){
+        return new Promise((resolve, reject) => {
+            let _row = row;
+            const regex = /@\d*@/ // @1234@
+            let resContent;
+            let resIndex;
+            _row = _row.replace(regex,(content,index) => {
+                resContent = content;
+                resIndex = index;
+                return '';
+            });
+            // console.log(row);
+            // console.log(resContent);
+            // console.log(resIndex);
+            // console.log(_row);
+            if(resIndex === 0 && !!resContent){
+                resolve({
+                    key: resContent.substr(1,resContent.length-2),
+                    content: _row,
+                });
+            }else{
+                reject(`Fail geting key. Invalid row : [${row}]`);
+            }
+        });
+    }
 
-    popLine(){
+    popLine(key = undefined){
         return new Promise((resolve, reject) => {
             this.mutex.lock(async () => {
 
                 try{
-                    // case file empty
-                    if((await this.getSize(this.files[1])) === 0){
+                    // popline
+                    const rawData_Buff_Json = await this.popDataRow(this.files[1], key);    // Data > Buff > Json > (pop)
+
+                    // handle enmpty result
+                    if(!rawData_Buff_Json){
                         this.mutex.unlock();
                         return resolve(false);
                     }
-                    
-                    // popline
-                    const dataJson = await this.popFirstDataRow(this.files[1]);
-                    const data = JSON.parse(dataJson);
-                    const decodedData = Buffer.from(data).toString();
+
+                    const rawData_Buff = JSON.parse(rawData_Buff_Json);                     // Data > Buff
+                    const rawData = Buffer.from(rawData_Buff).toString();                   // Data
+
                     // update checksum
                     await this.updateChecksum(this.files[1]);
                     
@@ -162,10 +190,10 @@ class saveFileWriter{
                     await this.updateChecksum(this.files[0]);
                     
                     this.mutex.unlock();
-                    resolve(decodedData);
+                    resolve(rawData);
                 }catch(err){
                     this.mutex.unlock();
-                    reject();
+                    reject(err);
                 }
             });
         });
@@ -253,34 +281,71 @@ class saveFileWriter{
         });
     }
 
-    popFirstDataRow(file){
-        return new Promise((resolve, reject) => {
+    popDataRow(file, _key = undefined){
+        return new Promise((resolve, reject) => { try { 
             const tmpFile = tmp.fileSync();
             let count = -1;
             let res;
+            let keyAlreadyFound = false;
+            const countpp = () => {
+                return new Promise((resolve, reject) => {
+                    count ++;
+                    resolve(count);
+                });
+            };
+            const setRes = (v) => {
+                return new Promise((resolve, reject) => {
+                    res = v;
+                    resolve();
+                });
+            };
             const s = fs.createReadStream(file.path, 'utf8')
                 .pipe(es.split()) // split the input file into lines
-                .pipe(es.filterSync((line) => {
-                    console.log(count+": "+line);
-                    if((count++) === 0){
-                        res = line
-                        return false;
+                .pipe(es.map(async (line, next, test) => {
+                    const count = await countpp();
+                    // console.log(count+": "+line);
+
+                    // skip header and empty
+                    if(count <= 0){
+                        return next(null, line+os.EOL); // same as filter, return data without change
                     }
-                    return true;
-                }))
-                .pipe(es.mapSync((line, next) => {
-                    if(line !== ""){
-                        return line + os.EOL;
+                    if(line === ""){
+                        return next(null, line); // same as filter, return data without change
                     }
+
+                    const { key, content } = await this.extractRowKey(line);
+                    
+                    // console.log({_key, key, content});
+                    if(!!_key && !keyAlreadyFound && key == _key){
+                        keyAlreadyFound = true;
+                        await setRes(content);
+                        // console.log("REMOVE BY ID")
+                        return next(null); // same as filter, map to null
+    
+                    }else if(!_key && count === 1){
+                        await setRes(content);
+                        // console.log("REMOVE")
+                        return next(null); // same as filter, map to null
+                    }
+
+                    return next(null, line+os.EOL); // same as filter, return data without change
                 }))
+                // .pipe(es.mapSync((line, next) => {
+                //     console.log(">>>>>", line)
+                //     if(line !== ""){
+                //         return line + os.EOL;
+                //     }
+                // }))
                 .pipe(fs.createWriteStream(tmpFile.name, 'utf8'))
                 .on('finish', () => {
                     // copy tmp to original
                     fs.copyFileSync(tmpFile.name, file.path);
+                    // console.log(tmpFile.name)
                     fs.unlinkSync(tmpFile.name);
                     resolve(res);
                 });
-        });
+
+        }catch(err){ reject(`error in popDataRow(${file.path}, ${_key}): ${err}`) }});
     }
 
     getNbLines(file){
